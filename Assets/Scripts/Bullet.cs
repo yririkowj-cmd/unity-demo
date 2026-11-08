@@ -13,10 +13,33 @@ public class Bullet : MonoBehaviour
 
     private Rigidbody rb;
     private bool hit; // 防止同一帧多次命中
+    private Transform ownerRoot; // 发射者根节点：忽略与自己的碰撞，避免贴脸自伤
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+    }
+
+    /// <summary>由武器调用：记录发射者，子弹飞行期间忽略与发射者自身的碰撞。</summary>
+    public void SetOwner(Transform owner)
+    {
+        ownerRoot = owner;
+        IgnoreOwnerCollisions();
+    }
+
+    private void Start()
+    {
+        IgnoreOwnerCollisions();
+    }
+
+    private void IgnoreOwnerCollisions()
+    {
+        if (ownerRoot == null) return;
+        var myCollider = GetComponent<Collider>();
+        if (myCollider == null) return;
+        foreach (var c in ownerRoot.GetComponentsInChildren<Collider>())
+            if (c != null && c != myCollider)
+                Physics.IgnoreCollision(myCollider, c, true);
     }
 
     /// <summary>由武器调用：赋予方向与速度，之后子弹自行飞行。</summary>
@@ -28,6 +51,10 @@ public class Bullet : MonoBehaviour
     private void OnCollisionEnter(Collision collision)
     {
         if (hit) return;
+
+        // 双保险：即使 IgnoreCollision 没生效，也绝不伤害发射者自己
+        if (ownerRoot != null && collision.collider.transform.root == ownerRoot) return;
+
         hit = true;
 
         var contact = collision.GetContact(0);

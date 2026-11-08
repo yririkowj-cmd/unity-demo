@@ -28,6 +28,12 @@ public class WeaponController : MonoBehaviour
 
     private InputSystem_Actions input;
 
+    // 自身引用：射线要跳过自己，否则第三人称时相机在身后，
+    // 瞄准射线会先打中自己的胶囊，导致"瞄准点在自己身上 → 朝后开枪 → 自伤"。
+    private Transform ownerRoot;
+    private Health ownerHealth;
+    private readonly RaycastHit[] hitBuffer = new RaycastHit[16];
+
     public bool IsReloading => isReloading;
     public int Magazine => currentMagazine;
     public int Reserve => currentReserve;
@@ -35,6 +41,8 @@ public class WeaponController : MonoBehaviour
     void Awake()
     {
         input = new InputSystem_Actions();
+        ownerRoot = transform.root;
+        ownerHealth = GetComponentInParent<Health>();
         if (data != null)
         {
             currentMagazine = data.magazineSize;
@@ -97,8 +105,7 @@ public class WeaponController : MonoBehaviour
     // —— 射线(光炮/步枪)：一帧判定 ——
     private void FireHitscan(Vector3 dir, Vector3 aimPoint)
     {
-        Ray ray = new Ray(muzzle.position, dir);
-        if (Physics.Raycast(ray, out RaycastHit hit, data.range))
+        if (RaycastIgnoringSelf(muzzle.position, dir, data.range, out RaycastHit hit))
         {
             ApplyDamage(hit.collider, hit.point, hit.normal, dir);
             ShowLaser(muzzle.position, hit.point);
@@ -138,35 +145,69 @@ public class WeaponController : MonoBehaviour
                 rb.angularVelocity = transform.right * data.throwSpinSpeed;
         }
 
-        // 伤害写入子弹
+        // 伤害写入子弹，并记录发射者(子弹会忽略自己的碰撞体，避免贴脸自伤)
         var bullet = go.GetComponent<Bullet>();
         if (bullet != null)
         {
             bullet.damage = data.damage;
             bullet.damageType = data.damageType;
+            bullet.SetOwner(ownerRoot);
         }
     }
 
     private void ApplyDamage(Collider col, Vector3 point, Vector3 normal, Vector3 dir)
     {
+        if (col == null || IsSelf(col)) return; // 双保险：绝不伤害自己
         var damageable = col.GetComponentInParent<IDamageable>();
         if (damageable == null) return;
         var info = new DamageInfo(data.damage, data.damageType, point, normal, dir.normalized, gameObject);
         damageable.TakeDamage(info);
     }
 
+    /// <summary>判断碰撞体是否属于自己(玩家/持枪者)。</summary>
+    private bool IsSelf(Collider col)
+    {
+        if (col == null) return false;
+        if (ownerRoot != null && col.transform.root == ownerRoot) return true;
+        if (ownerHealth != null && col.GetComponentInParent<Health>() == ownerHealth) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// 沿射线找最近的"非自己"命中。第三人称相机在身后，视线会先穿过自己的胶囊，
+    /// 必须跳过自身才能得到正确的瞄准点/命中目标。
+    /// </summary>
+    private bool RaycastIgnoringSelf(Vector3 origin, Vector3 dir, float maxDistance, out RaycastHit closest)
+    {
+        closest = default;
+        int count = Physics.RaycastNonAlloc(new Ray(origin, dir), hitBuffer, maxDistance);
+        float bestDistance = float.MaxValue;
+        bool found = false;
+        for (int i = 0; i < count; i++)
+        {
+            RaycastHit h = hitBuffer[i];
+            if (h.collider == null || IsSelf(h.collider)) continue;
+            if (h.distance < bestDistance)
+            {
+                bestDistance = h.distance;
+                closest = h;
+                found = true;
+            }
+        }
+        return found;
+    }
+
     /// <summary>根据散布和相机瞄准计算射击方向(准星指哪打哪)。</summary>
     private Vector3 CalculateSpread(out Vector3 hitPoint)
     {
-        Ray ray = playerCamera != null
+        Ray camRay = playerCamera != null
             ? playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0))
             : new Ray(muzzle.position, muzzle.forward);
 
-        Vector3 target;
-        if (Physics.Raycast(ray, out RaycastHit hit, data.range))
-            target = hit.point;
-        else
-            target = ray.GetPoint(data.range);
+        // 关键：忽略自身命中，否则第三人称下瞄准点会落在自己身上
+        Vector3 target = RaycastIgnoringSelf(camRay.origin, camRay.direction, data.range, out RaycastHit hit)
+            ? hit.point
+            : camRay.GetPoint(data.range);
 
         hitPoint = target;
         Vector3 dir = (target - muzzle.position).normalized;
