@@ -172,6 +172,15 @@ public class CameraRig : MonoBehaviour
         if (firstPerson) FreeLooking = false;
     }
 
+    /// <summary>应用角色定义的相机参数（换角色时调用）。</summary>
+    public void ApplyProfile(CharacterDefinition definition)
+    {
+        if (definition == null || definition.cameraProfile == null) return;
+        eyeHeight = definition.cameraProfile.eyeHeight;
+        shoulderHeight = definition.cameraProfile.shoulderHeight;
+        shoulderDistance = definition.cameraProfile.shoulderDistance;
+    }
+
     private void ApplyCameraMode(bool instant)
     {
         if (cameraHolder == null || playerCamera == null) return;

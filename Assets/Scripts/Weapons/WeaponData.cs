@@ -25,6 +25,8 @@ public class WeaponData : ScriptableObject
 {
     [Header("基本信息")]
     public string displayName = "Weapon";
+    [Tooltip("发射行为 id（如 hitscan / projectile / throwable，或 mod 注册的自定义 id）。留空则按 fireType 回退。")]
+    public string behaviorId = "";
     public FireType fireType = FireType.Hitscan;
     public FiringMode firingMode = FiringMode.Auto;
 

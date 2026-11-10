@@ -3,8 +3,13 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// 装备在手上的武器：读取 WeaponData 数据，处理开火(单发/连发/自动)、弹药与换弹。
-/// 三种开火方式(射线/弹道/投掷)都在这里，新增武器类型只需在 Fire 里加一个分支。
+/// 武器宿主：处理输入、冷却、弹药与换弹，并把"这一发怎么打出去"委托给 <see cref="IWeaponBehavior"/>。
+///
+/// 职责边界：
+///  - 何时开火、消耗弹药、冷却、换弹 —— 本类
+///  - 射线/弹道/投掷/未来的光束/霰弹/钩爪 —— 各自的 IWeaponBehavior 实现
+///
+/// 下面标注"稳定 API"的成员同时是内置行为与将来 mod 行为的调用面，改动需谨慎。
 /// </summary>
 public class WeaponController : MonoBehaviour
 {
@@ -37,6 +42,66 @@ public class WeaponController : MonoBehaviour
     public bool IsReloading => isReloading;
     public int Magazine => currentMagazine;
     public int Reserve => currentReserve;
+
+    // —————— 稳定 API：供 WeaponBehavior 使用 ——————
+
+    public WeaponData Data => data;
+    public Transform Muzzle => muzzle;
+    public Transform OwnerRoot => ownerRoot;
+
+    /// <summary>从枪口沿 direction 找最近的非自身命中。</summary>
+    public bool RaycastFromMuzzle(Vector3 direction, out RaycastHit hit)
+    {
+        return RaycastIgnoringSelf(muzzle.position, direction, data.range, out hit);
+    }
+
+    /// <summary>对命中对象结算伤害（内部会再做一次自身判断）。</summary>
+    public void Damage(Collider col, Vector3 point, Vector3 normal, Vector3 direction)
+    {
+        ApplyDamage(col, point, normal, direction);
+    }
+
+    /// <summary>显示一条短暂激光。</summary>
+    public void ShowLaser(Vector3 from, Vector3 to)
+    {
+        if (laserLine == null) return;
+        laserLine.SetPosition(0, from);
+        laserLine.SetPosition(1, to);
+        if (laserRoutine != null) StopCoroutine(laserRoutine);
+        laserRoutine = StartCoroutine(HideLaser());
+    }
+
+    /// <summary>生成抛射物（弹道/投掷共用）。</summary>
+    public void SpawnProjectile(Vector3 direction, bool throwable)
+    {
+        if (data.bulletPrefab == null)
+        {
+            Debug.LogWarning("WeaponData.bulletPrefab 未设置，无法发射弹道/投掷物。", this);
+            return;
+        }
+
+        Vector3 extraVelocity = throwable ? Vector3.up * data.throwUpSpeed : Vector3.zero;
+        float speed = data.projectileSpeed;
+
+        GameObject go = Instantiate(data.bulletPrefab, muzzle.position, Quaternion.LookRotation(direction));
+        var rb = go.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.linearVelocity = direction.normalized * speed + extraVelocity;
+            if (data.throwSpinSpeed > 0f)
+                rb.angularVelocity = transform.right * data.throwSpinSpeed;
+        }
+
+        var bullet = go.GetComponent<Bullet>();
+        if (bullet != null)
+        {
+            bullet.damage = data.damage;
+            bullet.damageType = data.damageType;
+            bullet.SetOwner(ownerRoot);
+        }
+    }
+
+    // ————————————————————————————————
 
     void Awake()
     {
@@ -88,71 +153,45 @@ public class WeaponController : MonoBehaviour
         }
     }
 
-    /// <summary>发射一枪(消耗一颗子弹并按 fireType 结算)。</summary>
+    /// <summary>发射一枪：扣弹、算方向、交给行为实现。</summary>
     private void Fire()
     {
         currentMagazine--;
-        Vector3 dir = CalculateSpread(out Vector3 hitPoint);
+        Vector3 dir = CalculateSpread(out _);
 
-        switch (data.fireType)
+        IWeaponBehavior behavior = WeaponBehaviorRegistry.Resolve(data.behaviorId, data.fireType);
+        if (behavior == null)
         {
-            case FireType.Hitscan:    FireHitscan(dir, hitPoint); break;
-            case FireType.Projectile: FireProjectile(dir); break;
-            case FireType.Throwable:  FireThrowable(dir); break;
-        }
-    }
-
-    // —— 射线(光炮/步枪)：一帧判定 ——
-    private void FireHitscan(Vector3 dir, Vector3 aimPoint)
-    {
-        if (RaycastIgnoringSelf(muzzle.position, dir, data.range, out RaycastHit hit))
-        {
-            ApplyDamage(hit.collider, hit.point, hit.normal, dir);
-            ShowLaser(muzzle.position, hit.point);
-        }
-        else
-        {
-            ShowLaser(muzzle.position, muzzle.position + dir * data.range);
-        }
-    }
-
-    // —— 弹道(手枪/步枪)：生成子弹 ——
-    private void FireProjectile(Vector3 dir)
-    {
-        SpawnProjectile(dir, data.projectileSpeed, Vector3.zero);
-    }
-
-    // —— 投掷(飞刀)：受重力 + 翻滚 ——
-    private void FireThrowable(Vector3 dir)
-    {
-        SpawnProjectile(dir, data.projectileSpeed, Vector3.up * data.throwUpSpeed);
-    }
-
-    private void SpawnProjectile(Vector3 dir, float speed, Vector3 extraVelocity)
-    {
-        if (data.bulletPrefab == null)
-        {
-            Debug.LogWarning("WeaponData.bulletPrefab 未设置，无法发射弹道/投掷物。", this);
+            Debug.LogError("没有可用的武器行为，开火被忽略。", this);
             return;
         }
 
-        GameObject go = Instantiate(data.bulletPrefab, muzzle.position, Quaternion.LookRotation(dir));
-        var rb = go.GetComponent<Rigidbody>();
-        if (rb != null)
-        {
-            rb.linearVelocity = dir.normalized * speed + extraVelocity;
-            if (data.throwSpinSpeed > 0f)
-                rb.angularVelocity = transform.right * data.throwSpinSpeed;
-        }
+        behavior.Fire(this, dir);
+    }
 
-        // 伤害写入子弹，并记录发射者(子弹会忽略自己的碰撞体，避免贴脸自伤)
-        var bullet = go.GetComponent<Bullet>();
-        if (bullet != null)
+    /// <summary>根据散布和相机瞄准计算射击方向(准星指哪打哪)。</summary>
+    private Vector3 CalculateSpread(out Vector3 hitPoint)
+    {
+        Ray camRay = playerCamera != null
+            ? playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0))
+            : new Ray(muzzle.position, muzzle.forward);
+
+        // 关键：忽略自身命中，否则第三人称下瞄准点会落在自己身上
+        Vector3 target = RaycastIgnoringSelf(camRay.origin, camRay.direction, data.range, out RaycastHit hit)
+            ? hit.point
+            : camRay.GetPoint(data.range);
+
+        hitPoint = target;
+        Vector3 dir = (target - muzzle.position).normalized;
+
+        if (data.spreadDegrees > 0f)
         {
-            bullet.damage = data.damage;
-            bullet.damageType = data.damageType;
-            bullet.SetOwner(ownerRoot);
+            dir = Quaternion.Euler(
+                Random.Range(-data.spreadDegrees, data.spreadDegrees),
+                Random.Range(-data.spreadDegrees, data.spreadDegrees),
+                0f) * dir;
         }
+        return dir.normalized;
     }
 
     private void ApplyDamage(Collider col, Vector3 point, Vector3 normal, Vector3 dir)
@@ -195,40 +234,6 @@ public class WeaponController : MonoBehaviour
             }
         }
         return found;
-    }
-
-    /// <summary>根据散布和相机瞄准计算射击方向(准星指哪打哪)。</summary>
-    private Vector3 CalculateSpread(out Vector3 hitPoint)
-    {
-        Ray camRay = playerCamera != null
-            ? playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0))
-            : new Ray(muzzle.position, muzzle.forward);
-
-        // 关键：忽略自身命中，否则第三人称下瞄准点会落在自己身上
-        Vector3 target = RaycastIgnoringSelf(camRay.origin, camRay.direction, data.range, out RaycastHit hit)
-            ? hit.point
-            : camRay.GetPoint(data.range);
-
-        hitPoint = target;
-        Vector3 dir = (target - muzzle.position).normalized;
-
-        if (data.spreadDegrees > 0f)
-        {
-            dir = Quaternion.Euler(
-                Random.Range(-data.spreadDegrees, data.spreadDegrees),
-                Random.Range(-data.spreadDegrees, data.spreadDegrees),
-                0f) * dir;
-        }
-        return dir.normalized;
-    }
-
-    private void ShowLaser(Vector3 from, Vector3 to)
-    {
-        if (laserLine == null) return;
-        laserLine.SetPosition(0, from);
-        laserLine.SetPosition(1, to);
-        if (laserRoutine != null) StopCoroutine(laserRoutine);
-        laserRoutine = StartCoroutine(HideLaser());
     }
 
     private IEnumerator HideLaser()

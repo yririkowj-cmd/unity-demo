@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -64,6 +65,25 @@ public class PlayerMovement : MonoBehaviour
     private float verticalVelocity;     // 垂直速度(y 分量)
     private float coyoteTimer;
 
+    // —— 修正器栈：技能/状态/BUFF 通过它改移动参数，不用改本类 ——
+    private class MovementModifier
+    {
+        public string id;
+        public float speed = 1f;
+        public float gravity = 1f;
+        public float jump = 1f;
+        public float endTime; // 0 = 永久
+    }
+
+    private readonly List<MovementModifier> modifiers = new List<MovementModifier>();
+
+    /// <summary>速度倍率（多个修正器相乘）。</summary>
+    public float SpeedMultiplier { get; private set; } = 1f;
+    /// <summary>重力倍率（0 = 无重力，负数 = 反向）。</summary>
+    public float GravityMultiplier { get; private set; } = 1f;
+    /// <summary>跳跃高度倍率。</summary>
+    public float JumpMultiplier { get; private set; } = 1f;
+
     public MoveMode Mode { get; private set; }
     public bool IsGrounded { get; private set; }
     public bool IsMoving { get; private set; }
@@ -89,6 +109,7 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
+        UpdateModifiers();
         HandleModeSwitch();
 
         if (Mode == MoveMode.Fly)
@@ -132,13 +153,17 @@ public class PlayerMovement : MonoBehaviour
 
     private void HandleJump()
     {
-        if (input.Player.Jump.triggered && coyoteTimer > 0f)
+        // 修正器可改变重力(0 = 悬浮，负值反向)
+        float effectiveGravity = gravity * GravityMultiplier;
+
+        if (input.Player.Jump.triggered && coyoteTimer > 0f && effectiveGravity < 0f)
         {
-            verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            float jumpSpeed = Mathf.Sqrt(jumpHeight * JumpMultiplier * -2f * effectiveGravity);
+            verticalVelocity = jumpSpeed;
             coyoteTimer = 0f; // 防止空中连跳
         }
 
-        verticalVelocity += gravity * Time.deltaTime;
+        verticalVelocity += effectiveGravity * Time.deltaTime;
     }
 
     private void HandleGroundMove()
@@ -150,7 +175,7 @@ public class PlayerMovement : MonoBehaviour
                       && Keyboard.current != null
                       && Keyboard.current[sprintKey].isPressed;
 
-        float maxSpeed = speed * (IsSprinting ? sprintMultiplier : 1f);
+        float maxSpeed = speed * (IsSprinting ? sprintMultiplier : 1f) * SpeedMultiplier;
         Vector3 target = move.normalized * maxSpeed;
         float rate = target.sqrMagnitude > 0.01f ? acceleration : deceleration;
         horizontalVelocity = Vector3.MoveTowards(horizontalVelocity, target, rate * Time.deltaTime);
@@ -165,7 +190,7 @@ public class PlayerMovement : MonoBehaviour
         Vector2 moveInput = input.Player.Move.ReadValue<Vector2>();
         Vector3 move = GetMoveDirection(moveInput);
 
-        Vector3 target = move.normalized * flySpeed;
+        Vector3 target = move.normalized * flySpeed * SpeedMultiplier;
         horizontalVelocity = Vector3.MoveTowards(horizontalVelocity, target, flyAcceleration * Time.deltaTime);
 
         float verticalInput = 0f;
@@ -174,7 +199,7 @@ public class PlayerMovement : MonoBehaviour
             if (Keyboard.current[flyUpKey].isPressed) verticalInput += 1f;
             if (Keyboard.current[flyDownKey].isPressed) verticalInput -= 1f;
         }
-        verticalVelocity = Mathf.MoveTowards(verticalVelocity, verticalInput * flyVerticalSpeed,
+        verticalVelocity = Mathf.MoveTowards(verticalVelocity, verticalInput * flyVerticalSpeed * SpeedMultiplier,
                                              flyAcceleration * Time.deltaTime);
 
         IsSprinting = false;
@@ -192,6 +217,78 @@ public class PlayerMovement : MonoBehaviour
         Quaternion rot = Quaternion.Euler(0f, yaw, 0f);
         Vector3 move = (rot * Vector3.right) * moveInput.x + (rot * Vector3.forward) * moveInput.y;
         return move.sqrMagnitude > 1f ? move.normalized : move;
+    }
+
+    // —— 修正器栈（技能/状态/载具可调用） ——
+
+    /// <summary>
+    /// 添加一个移动修正器。同 id 会覆盖旧的（便于持续刷新）。
+    /// </summary>
+    /// <param name="id">来源标识，如 "ability.dash"、"buff.slow"</param>
+    /// <param name="speedMul">速度倍率</param>
+    /// <param name="gravityMul">重力倍率（0 可做悬浮）</param>
+    /// <param name="jumpMul">跳跃高度倍率</param>
+    /// <param name="duration">持续时间（秒），<=0 表示永久，需手动 Remove</param>
+    public void AddModifier(string id, float speedMul = 1f, float gravityMul = 1f, float jumpMul = 1f, float duration = 0f)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+
+        modifiers.RemoveAll(m => m.id == id);
+        modifiers.Add(new MovementModifier
+        {
+            id = id,
+            speed = speedMul,
+            gravity = gravityMul,
+            jump = jumpMul,
+            endTime = duration > 0f ? Time.time + duration : 0f
+        });
+        RecalculateModifiers();
+    }
+
+    public void RemoveModifier(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        modifiers.RemoveAll(m => m.id == id);
+        RecalculateModifiers();
+    }
+
+    /// <summary>把角色的运动参数应用进来（换角色/换载具时调用）。</summary>
+    public void ApplyProfile(CharacterDefinition definition)
+    {
+        if (definition == null) return;
+        MovementProfile p = definition.movement;
+        if (p == null) return;
+
+        speed = p.walkSpeed;
+        sprintMultiplier = p.sprintMultiplier;
+        acceleration = p.acceleration;
+        deceleration = p.deceleration;
+        flySpeed = p.flySpeed;
+        flyAcceleration = p.flyAcceleration;
+        flyVerticalSpeed = p.flyVerticalSpeed;
+        jumpHeight = p.jumpHeight;
+        gravity = p.gravity;
+    }
+
+    private void UpdateModifiers()
+    {
+        if (modifiers.Count == 0) return;
+        if (modifiers.RemoveAll(m => m.endTime > 0f && Time.time >= m.endTime) > 0)
+            RecalculateModifiers();
+    }
+
+    private void RecalculateModifiers()
+    {
+        float speedMul = 1f, gravityMul = 1f, jumpMul = 1f;
+        foreach (MovementModifier m in modifiers)
+        {
+            speedMul *= m.speed;
+            gravityMul *= m.gravity;
+            jumpMul *= m.jump;
+        }
+        SpeedMultiplier = speedMul;
+        GravityMultiplier = gravityMul;
+        JumpMultiplier = jumpMul;
     }
 
     private void ApplyMovement()
