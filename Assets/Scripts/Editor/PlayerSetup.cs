@@ -40,7 +40,7 @@ public static class PlayerSetup
 
         // 脚本
         if (player.GetComponent<PlayerMovement>() == null) player.AddComponent<PlayerMovement>();
-        if (player.GetComponent<MouseMovement>() == null) player.AddComponent<MouseMovement>();
+        if (player.GetComponent<CameraRig>() == null) player.AddComponent<CameraRig>();
         if (player.GetComponent<PlayerHealth>() == null) player.AddComponent<PlayerHealth>();
 
         // 模型挂点 + 占位胶囊(以后把二游模型放到 ModelRoot 下即可)
@@ -86,8 +86,8 @@ public static class PlayerSetup
         }
 
         // 连线引用
-        var mm = player.GetComponent<MouseMovement>();
-        mm.modelRoot = modelRoot;
+        var rig = player.GetComponent<CameraRig>();
+        rig.modelRoot = modelRoot;
 
         var pm = player.GetComponent<PlayerMovement>();
         pm.groundCheck = groundCheck;

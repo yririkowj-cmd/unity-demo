@@ -2521,7 +2521,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 337325320bf572a44a601c3cb4535b23, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::MouseMovement
+  m_EditorClassIdentifier: Assembly-CSharp::CameraRig
   mouseSensitivity: 100
   invertY: 0
   topClamp: -80
