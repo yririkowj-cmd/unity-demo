@@ -54,4 +54,22 @@ public class PlayerInputRouter : MonoBehaviour
         if (router == null) router = root.gameObject.AddComponent<PlayerInputRouter>();
         return router;
     }
+
+    // —————— 设备级读取（action 资产里还没有这些动作时的统一出口） ——————
+
+    private static readonly Key[] DigitKeys =
+    {
+        Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4,
+        Key.Digit5, Key.Digit6, Key.Digit7, Key.Digit8, Key.Digit9
+    };
+
+    /// <summary>鼠标滚轮竖直分量（没有鼠标时为 0）。</summary>
+    public float ScrollY => Mouse.current != null ? Mouse.current.scroll.ReadValue().y : 0f;
+
+    /// <summary>数字键 1..9 本帧是否按下（index 从 0 开始）。</summary>
+    public bool WasDigitPressed(int index)
+    {
+        if (Keyboard.current == null || index < 0 || index >= DigitKeys.Length) return false;
+        return Keyboard.current[DigitKeys[index]].wasPressedThisFrame;
+    }
 }

@@ -97,6 +97,7 @@ public class WeaponController : MonoBehaviour
         {
             bullet.damage = data.damage;
             bullet.damageType = data.damageType;
+            bullet.weaponData = data;
             bullet.SetOwner(ownerRoot);
         }
     }
@@ -195,10 +196,18 @@ public class WeaponController : MonoBehaviour
     private void ApplyDamage(Collider col, Vector3 point, Vector3 normal, Vector3 dir)
     {
         if (col == null || IsSelf(col)) return; // 双保险：绝不伤害自己
+
         var damageable = col.GetComponentInParent<IDamageable>();
-        if (damageable == null) return;
-        var info = new DamageInfo(data.damage, data.damageType, point, normal, dir.normalized, gameObject, data);
-        damageable.TakeDamage(info);
+        if (damageable != null)
+        {
+            var info = new DamageInfo(data.damage, data.damageType, point, normal, dir.normalized, gameObject, data);
+            damageable.TakeDamage(info);
+        }
+
+        // 命中反应：只通知实现了 IHitReactable 的对象（击退/点燃/变形等交给对方决定）
+        var reactable = col.GetComponentInParent<IHitReactable>();
+        if (reactable != null)
+            reactable.React(new HitResult(col, point, normal, dir.normalized, gameObject));
     }
 
     /// <summary>判断碰撞体是否属于自己(玩家/持枪者)。</summary>

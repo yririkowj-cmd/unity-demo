@@ -11,6 +11,9 @@ public class Bullet : MonoBehaviour
     public float damage = 10f;
     public DamageType damageType = DamageType.Projectile;
 
+    [Header("来源(武器生成时写入)")]
+    public WeaponData weaponData;
+
     private Rigidbody rb;
     private bool hit; // 防止同一帧多次命中
     private Transform ownerRoot; // 发射者根节点：忽略与自己的碰撞，避免贴脸自伤
@@ -64,8 +67,16 @@ public class Bullet : MonoBehaviour
         if (damageable != null)
         {
             Vector3 knockback = rb != null ? rb.linearVelocity.normalized * 1f : Vector3.zero;
-            var info = new DamageInfo(damage, damageType, contact.point, contact.normal, knockback, null);
+            var info = new DamageInfo(damage, damageType, contact.point, contact.normal, knockback, null, weaponData);
             damageable.TakeDamage(info);
+        }
+
+        // 命中反应(击退/点燃等)：只通知实现了 IHitReactable 的对象
+        var reactable = collision.collider.GetComponentInParent<IHitReactable>();
+        if (reactable != null)
+        {
+            Vector3 impulse = rb != null ? rb.linearVelocity.normalized * 1f : Vector3.zero;
+            reactable.React(new HitResult(collision.collider, contact.point, contact.normal, impulse, gameObject));
         }
 
         // 命中任何东西都销毁(墙体可留弹孔，留待以后)

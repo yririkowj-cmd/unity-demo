@@ -1,20 +1,20 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 /// <summary>
 /// 武器切换：持有多把武器(每个武器是一个带 WeaponController 的物体)，用滚轮或数字键切换。
+/// 输入统一走 <see cref="PlayerInputRouter"/>，不直接读设备，避免以后滚轮同时承担"切枪/检视"时冲突。
 /// </summary>
 public class WeaponSwitcher : MonoBehaviour
 {
     public WeaponController[] weapons;
 
-    private static readonly Key[] DigitKeys =
-    {
-        Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4,
-        Key.Digit5, Key.Digit6, Key.Digit7, Key.Digit8, Key.Digit9
-    };
-
+    private PlayerInputRouter input;
     private int currentIndex = -1;
+
+    void Awake()
+    {
+        input = PlayerInputRouter.GetOrCreate(gameObject);
+    }
 
     void Start()
     {
@@ -23,21 +23,17 @@ public class WeaponSwitcher : MonoBehaviour
 
     void Update()
     {
-        if (weapons == null || weapons.Length == 0) return;
+        if (weapons == null || weapons.Length == 0 || input == null) return;
 
         // 滚轮切换
-        if (Mouse.current != null)
-        {
-            float scroll = Mouse.current.scroll.ReadValue().y;
-            if (scroll > 0.1f) Select(currentIndex - 1);
-            else if (scroll < -0.1f) Select(currentIndex + 1);
-        }
+        float scroll = input.ScrollY;
+        if (scroll > 0.1f) Select(currentIndex - 1);
+        else if (scroll < -0.1f) Select(currentIndex + 1);
 
         // 数字键 1..N 直接选
-        for (int i = 0; i < weapons.Length && i < DigitKeys.Length; i++)
+        for (int i = 0; i < weapons.Length && i < 9; i++)
         {
-            if (Keyboard.current != null && Keyboard.current[DigitKeys[i]].wasPressedThisFrame)
-                Select(i);
+            if (input.WasDigitPressed(i)) Select(i);
         }
     }
 
