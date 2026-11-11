@@ -50,12 +50,27 @@ public static class ArmorySetup
         Debug.Log($"[Armory] 白盒场景已生成：{ScenePath}");
     }
 
-    private static void EnsureInBuildSettings()
+    /// <summary>把 Hub 注册为启动场景（Build Settings 第 0 位），保留其他场景。</summary>
+    [MenuItem("Tools/Armory/Register Hub In Build Settings")]
+    public static void RegisterHubInBuildSettings()
     {
+        if (AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) == null)
+        {
+            Debug.LogError($"[Armory] 找不到 {ScenePath}，请先执行 Build Whitebox Scene。");
+            return;
+        }
+
         var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
-        if (scenes.Exists(s => s.path == ScenePath)) return;
+        scenes.RemoveAll(s => s.path == ScenePath);
         scenes.Insert(0, new EditorBuildSettingsScene(ScenePath, true));
         EditorBuildSettings.scenes = scenes.ToArray();
+
+        Debug.Log("[Armory] 已把 Hub 注册为启动场景（Build Settings 第 0 位）。");
+    }
+
+    private static void EnsureInBuildSettings()
+    {
+        RegisterHubInBuildSettings();
     }
 
     // —— 房间 ——
