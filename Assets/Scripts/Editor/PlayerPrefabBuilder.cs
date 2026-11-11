@@ -21,6 +21,12 @@ public static class PlayerPrefabBuilder
     [MenuItem("Tools/Player/Rebuild Player Prefab")]
     public static void RebuildMenu()
     {
+        if (File.Exists(PrefabPath) && !EditorUtility.DisplayDialog(
+                "重建玩家预制体",
+                "会覆盖 Player.prefab，所有场景里的实例都会跟着更新（场景中的 override 可能失效）。",
+                "覆盖重建", "取消"))
+            return;
+
         Rebuild();
     }
 
