@@ -144,7 +144,11 @@ public static class ArmorySetup
 
     private static void BuildPlayer()
     {
-        PlayerFactory.Build(new Vector3(0f, 0.1f, -4f), Quaternion.identity);
+        // 主路径：实例化玩家预制体（可在 Inspector 里改，也可作为 mod 的基准）
+        GameObject prefab = PlayerPrefabBuilder.EnsurePrefab();
+        var player = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+        player.name = "Player";
+        player.transform.SetPositionAndRotation(new Vector3(0f, 0.1f, -4f), Quaternion.identity);
     }
 
     // —— 工具 ——

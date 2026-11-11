@@ -9,11 +9,19 @@ using UnityEngine;
 /// </summary>
 public static class PlayerFactory
 {
-    /// <summary>在指定位置创建一个标准玩家。若场景中已有名为 Player 的对象则直接返回它。</summary>
-    public static GameObject Build(Vector3 position, Quaternion rotation)
+    /// <summary>
+    /// 在指定位置创建一个标准玩家（程序化搭建）。
+    /// 注意：这是"脚手架/兜底"路径，正常情况下请使用 <see cref="Instantiate(GameObject, CharacterDefinition, Vector3, Quaternion)"/>
+    /// 配合 Assets/Prefabs/Player.prefab，这样玩家可以在 Inspector 里维护。
+    /// </summary>
+    /// <param name="reuseExisting">场景里已有 Player 时是否直接复用（造预制体时必须传 false）</param>
+    public static GameObject Build(Vector3 position, Quaternion rotation, bool reuseExisting = true)
     {
-        GameObject existing = GameObject.Find("Player");
-        if (existing != null) return existing;
+        if (reuseExisting)
+        {
+            GameObject existing = GameObject.Find("Player");
+            if (existing != null) return existing;
+        }
 
         var player = new GameObject("Player");
         int playerLayer = LayerMask.NameToLayer("Player");
@@ -85,6 +93,27 @@ public static class PlayerFactory
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// 从预制体实例化玩家，并应用角色参数（运行时/场景的主路径）。
+    /// 没有传预制体时退回程序化搭建。
+    /// </summary>
+    public static GameObject Instantiate(GameObject playerPrefab, CharacterDefinition definition,
+                                         Vector3 position, Quaternion rotation)
+    {
+        if (playerPrefab == null)
+            return Build(position, rotation, reuseExisting: false);
+
+        GameObject player = Object.Instantiate(playerPrefab, position, rotation);
+
+        if (definition != null)
+        {
+            definition.ApplyTo(player.GetComponent<PlayerMovement>());
+            definition.ApplyTo(player.GetComponent<CameraRig>());
+        }
+
+        return player;
     }
 
     private static void SafeDestroy(Object obj)
