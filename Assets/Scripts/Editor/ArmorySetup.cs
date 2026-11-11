@@ -24,11 +24,16 @@ public static class ArmorySetup
 
     // —— 房间尺寸（改这里）——
     private const float RoomWidth = 30f;    // X 方向
-    private const float RoomDepth = 20f;    // Z 方向
+    private const float RoomDepth = 30f;    // Z 方向（纵深，决定打靶距离）
     private const float RoomHeight = 6f;    // Y 方向
     private const float WallThickness = 0.3f;
     private const float DoorWidth = 3.2f;   // 门洞宽度
     private const float DoorCenterZ = 5f;   // 门洞中心的 Z（相对房间中心）
+
+    // —— 靶场参数（改这里）——
+    private const float TargetSpacing = 8f;          // 三个靶子的横向间距
+    private const float TargetOffsetFromFront = 1.5f; // 靶子离前墙的距离
+    private const float SpawnOffsetFromBack = 2f;     // 出生点离后墙的距离
 
     [MenuItem("Tools/Armory/Build Whitebox Scene")]
     public static void Build()
@@ -54,7 +59,8 @@ public static class ArmorySetup
         Directory.CreateDirectory("Assets/Scenes");
         EditorSceneManager.SaveScene(scene, ScenePath);
         EnsureInBuildSettings();
-        Debug.Log($"[Armory] 白盒场景已生成：{ScenePath}（{RoomWidth} × {RoomDepth} × {RoomHeight}）");
+        Debug.Log($"[Armory] 白盒场景已生成：{ScenePath}" +
+                  $"（{RoomWidth} × {RoomDepth} × {RoomHeight}，出生点到靶子约 {RoomDepth - TargetOffsetFromFront - SpawnOffsetFromBack} 米）");
     }
 
     // —— 房间 ——
@@ -125,8 +131,8 @@ public static class ArmorySetup
 
     private static void BuildTargets(Transform root)
     {
-        float z = RoomDepth * 0.5f - 1.5f;
-        float spacing = RoomWidth * 0.2f; // 30 → 6 米间距
+        float z = RoomDepth * 0.5f - TargetOffsetFromFront;
+        float spacing = TargetSpacing;
 
         for (int i = -1; i <= 1; i++)
         {
@@ -180,7 +186,7 @@ public static class ArmorySetup
         var player = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
         player.name = "Player";
         player.transform.SetPositionAndRotation(
-            new Vector3(0f, 0.1f, -RoomDepth * 0.5f + 2f), Quaternion.identity);
+            new Vector3(0f, 0.1f, -RoomDepth * 0.5f + SpawnOffsetFromBack), Quaternion.identity);
     }
 
     // —— 构建设置 ——
