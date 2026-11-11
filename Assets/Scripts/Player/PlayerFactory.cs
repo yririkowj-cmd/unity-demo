@@ -1,11 +1,14 @@
 using UnityEngine;
 
 /// <summary>
-/// 玩家工厂：按标准结构创建一个可直接运行的玩家（控制器 + 移动 + 相机 + 血条 + 挂点）。
+/// 玩家工厂：提供"从预制体生成玩家"与"应用角色参数"的能力。
 ///
-/// 用途：新场景（军火库/探索区）需要玩家时调用 Build()，避免每个场景手工搭一遍。
-/// 与 PlayerSetup 的区别：PlayerSetup 是"改造场景里已有的玩家"（迁移用），
-/// 本类是从零构建，两者共享同一套结构约定。
+/// 主路径：<c>Instantiate(playerPrefab, definition, pos, rot)</c>
+///   —— 场景/运行时都走这条，玩家模板是 Assets/Prefabs/Player.prefab。
+///
+/// 兜底路径：<c>Build(...)</c> 用代码现场搭一个玩家，
+///   —— 只在预制体缺失（首次生成）或做测试时使用，不要放进正常游戏流程，
+///      否则会和预制体形成"两个真相"。
 /// </summary>
 public static class PlayerFactory
 {

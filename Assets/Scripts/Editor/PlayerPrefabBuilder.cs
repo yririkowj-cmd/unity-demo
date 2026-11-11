@@ -1,49 +1,41 @@
-using System.IO;
 using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// 玩家预制体生成器。
-/// 菜单：Tools → Player → Rebuild Player Prefab
+/// 玩家预制体的"首次生成器"。
 ///
-/// 生成 Assets/Prefabs/Player.prefab —— 这是玩家的"唯一模板"：
-///  - 场景里放它的实例，可以在 Inspector 里直接改
-///  - 改预制体本体，所有实例同步更新
-///  - 以后 mod 作者做新角色，只需基于它做变体或替换 ModelRoot 下的模型
+/// 约定：<c>Assets/Prefabs/Player.prefab</c> 是玩家的**唯一真身**。
+///  - 日常修改：直接在 Inspector 里改 prefab（或场景实例做 override）
+///  - 新增场景：用 <see cref="EnsurePrefab"/> 取到它再实例化
+///  - 恢复基准：手动删除 prefab，然后跑一次军火库生成器（会走这里自动重建）
 ///
-/// 预制体由 PlayerFactory 程序化搭出后保存，所以代码与模板不会漂移。
+/// 本类**不提供**"一键重建"菜单 —— 因为那会覆盖你在 Inspector 里做的手动修改，
+/// 制造"代码结构"和"预制体结构"两个真相。
 /// </summary>
 public static class PlayerPrefabBuilder
 {
     public const string PrefabPath = "Assets/Prefabs/Player.prefab";
     private const string PrefabFolder = "Assets/Prefabs";
 
-    [MenuItem("Tools/Player/Rebuild Player Prefab")]
-    public static void RebuildMenu()
-    {
-        if (File.Exists(PrefabPath) && !EditorUtility.DisplayDialog(
-                "重建玩家预制体",
-                "会覆盖 Player.prefab，所有场景里的实例都会跟着更新（场景中的 override 可能失效）。",
-                "覆盖重建", "取消"))
-            return;
-
-        Rebuild();
-    }
-
-    /// <summary>确保预制体存在；不存在则生成一份。</summary>
+    /// <summary>确保预制体存在；不存在则用代码生成一份（仅首次/恢复时发生）。</summary>
     public static GameObject EnsurePrefab()
     {
         var existing = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
-        return existing != null ? existing : Rebuild();
+        if (existing != null) return existing;
+
+        Debug.LogWarning($"[Player] 未找到 {PrefabPath}，正在用代码生成一份初始模板。之后请直接在 Inspector 里修改它。");
+        return BuildFromCode();
     }
 
-    /// <summary>重新生成玩家预制体（会覆盖同路径文件）。</summary>
-    public static GameObject Rebuild()
+    /// <summary>
+    /// 用 PlayerFactory 程序化搭一份并保存为预制体。
+    /// 仅供 <see cref="EnsurePrefab"/> 在预制体缺失时调用；不要在日常开发中调用。
+    /// </summary>
+    private static GameObject BuildFromCode()
     {
         if (!AssetDatabase.IsValidFolder(PrefabFolder))
             AssetDatabase.CreateFolder("Assets", "Prefabs");
 
-        // 在当前场景里搭一份临时玩家 → 存成预制体 → 立刻删掉
         GameObject temp = PlayerFactory.Build(Vector3.zero, Quaternion.identity, reuseExisting: false);
         temp.name = "Player";
 
