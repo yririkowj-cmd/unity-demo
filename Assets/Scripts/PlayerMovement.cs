@@ -98,14 +98,13 @@ public class PlayerMovement : MonoBehaviour
 
     void Awake()
     {
-        input = new InputSystem_Actions();
+        // 统一输入出口（见 PlayerInputRouter）
+        input = PlayerInputRouter.GetOrCreate(gameObject).Input;
         controller = GetComponent<CharacterController>();
         cameraRig = GetComponent<CameraRig>();
         Mode = startMode;
     }
 
-    void OnEnable() => input.Player.Enable();
-    void OnDisable() => input.Player.Disable();
 
     void Update()
     {

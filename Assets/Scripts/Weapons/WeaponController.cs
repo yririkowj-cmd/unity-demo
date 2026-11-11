@@ -105,7 +105,8 @@ public class WeaponController : MonoBehaviour
 
     void Awake()
     {
-        input = new InputSystem_Actions();
+        // 统一输入出口，避免每个组件各自 new 一份（见 PlayerInputRouter）
+        input = PlayerInputRouter.GetOrCreate(gameObject).Input;
         ownerRoot = transform.root;
         ownerHealth = GetComponentInParent<Health>();
         if (data != null)
@@ -114,9 +115,6 @@ public class WeaponController : MonoBehaviour
             currentReserve = data.reserveAmmo;
         }
     }
-
-    void OnEnable()  => input.Player.Enable();
-    void OnDisable() => input.Player.Disable();
 
     void Update()
     {
@@ -199,7 +197,7 @@ public class WeaponController : MonoBehaviour
         if (col == null || IsSelf(col)) return; // 双保险：绝不伤害自己
         var damageable = col.GetComponentInParent<IDamageable>();
         if (damageable == null) return;
-        var info = new DamageInfo(data.damage, data.damageType, point, normal, dir.normalized, gameObject);
+        var info = new DamageInfo(data.damage, data.damageType, point, normal, dir.normalized, gameObject, data);
         damageable.TakeDamage(info);
     }
 

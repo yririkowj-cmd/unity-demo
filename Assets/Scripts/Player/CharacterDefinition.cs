@@ -72,6 +72,26 @@ public class CharacterDefinition : ScriptableObject
         cameraRig.ApplyProfile(this);
     }
 
+    /// <summary>
+    /// 解析技能槽里的 id 并注册到运行时。
+    /// 当前阶段还没有具体技能，所以通常注册 0 个——这是预期的；
+    /// 以后新增技能只需实现 IAbility 并在 ContentRegistry 注册 "ability.xxx"。
+    /// </summary>
+    public void ApplyAbilities(AbilityRuntime runtime)
+    {
+        if (runtime == null || abilityIds == null) return;
+
+        foreach (string id in abilityIds)
+        {
+            if (string.IsNullOrEmpty(id)) continue;
+
+            if (ContentRegistry.TryGet("ability." + id, out IAbility ability) && ability != null)
+                runtime.Register(ability);
+            else
+                Debug.LogWarning($"[Character] 未找到技能 '{id}'（ContentRegistry 中没有 ability.{id}）");
+        }
+    }
+
     /// <summary>注册到全局内容表（加载角色时调用）。</summary>
     public void Register()
     {

@@ -23,9 +23,10 @@ public readonly struct DamageInfo
     public readonly Vector3 normal;     // 命中面法线
     public readonly Vector3 knockback;  // 击退方向与力度
     public readonly GameObject source;  // 谁造成的伤害(玩家/敌人)
+    public readonly WeaponData weaponData; // 用的哪把武器(可为空：技能/环境伤害)
 
     public DamageInfo(float amount, DamageType type, Vector3 point, Vector3 normal,
-                      Vector3 knockback, GameObject source)
+                      Vector3 knockback, GameObject source, WeaponData weaponData = null)
     {
         this.amount = amount;
         this.type = type;
@@ -33,5 +34,6 @@ public readonly struct DamageInfo
         this.normal = normal;
         this.knockback = knockback;
         this.source = source;
+        this.weaponData = weaponData;
     }
 }
