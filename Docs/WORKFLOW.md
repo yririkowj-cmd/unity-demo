@@ -154,6 +154,9 @@ git -c http.proxy=http://127.0.0.1:7897 -c https.proxy=http://127.0.0.1:7897 pus
 - 跑菜单生成器（`Tools → Armory`）前先 `Ctrl+S`，它会切换场景
 - 生成的场景/预制体**不要手动改完又跑生成器**，否则覆盖
 - 每次在 Unity 里改完场景记得 `Ctrl+S`，否则 git 里看不到改动
+- **`Hub.unity` 是生成器产物**：根节点 `Armory` 上挂着 `GeneratedByArmory` 标记，
+  看到它就别手改场景——要改布局请改 `ArmorySetup.cs` 顶部的参数（房间尺寸、靶距、靶间距、出生点），
+  然后重新执行 `Tools → Armory → Build Whitebox Scene`
 
 ---
 

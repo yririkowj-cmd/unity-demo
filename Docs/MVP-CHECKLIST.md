@@ -9,23 +9,24 @@
 
 ---
 
-## 当前进度（2026-11-09）
+## 当前进度（2026-11-12）
 
 已有（可以直接复用）：
 
-- [x] 玩家移动 + 第一/第三人称切换（`PlayerMovement` / `MouseMovement`）
+- [x] 玩家移动 + 第一/第三人称切换（`PlayerMovement` / `CameraRig`）
 - [x] 伤害系统与血量（`Health` / `IDamageable` / `DamageInfo` / `PlayerHealth`）
-- [x] 武器数据资产 + 三种开火方式（`WeaponData` / `WeaponController`）
-- [x] 武器切换（`WeaponSwitcher`）
-- [x] 5 个静态靶 + 靶子受击反馈（`TargetHealth`）
+- [x] 武器数据资产 + 三种开火方式（`WeaponData` / `WeaponController` / `IWeaponBehavior`）
+- [x] 武器切换（`WeaponSwitcher`，走统一输入路由）
+- [x] 5 个静态靶 + 靶子受击反馈（`TargetHealth`，含 `IHitReactable` 弹动）
 - [x] 第三人称自伤 bug 修复
+- [x] 军火库白盒场景 `Hub.unity`（30×30×6，生成器维护）
+- [x] 玩家预制体 `Player.prefab`（唯一模板）
+- [x] 输入路由 / 命中反应 / 技能入口（基础三类）
 
 缺口（按 MVP 优先级）：
 
-- [ ] 军火库白盒房间
+- [ ] 开火手感闭环（后坐力 / 音效 / 枪口焰 / 命中粒子 / 计分）
 - [ ] 武器墙 + 拿取交互
-- [ ] 开火反馈四件套（后坐力 / 音效 / 枪口焰 / 命中粒子）
-- [ ] 计分
 - [ ] 近战武器（真正的挥砍）
 - [ ] 皮肤系统
 - [ ] 角色展示台
@@ -36,8 +37,8 @@
 
 ## 第 1–2 周：军火库 + 第一把枪
 
-- [ ] 房间里能走路（CharacterController 跑通）
-- [ ] 军火库白盒：墙面、展台、门口靶位、出口门
+- [x] 房间里能走路（CharacterController 跑通）
+- [x] 军火库白盒：墙面、展台、门口靶位、出口门
 - [ ] 墙上有一把枪，能拿起来（走近 → 提示 → E 拿起）
 - [ ] 拿起枪有重量感/手感反馈（鼠标/手柄震动）
 - [ ] 门口有靶子，能开火打中

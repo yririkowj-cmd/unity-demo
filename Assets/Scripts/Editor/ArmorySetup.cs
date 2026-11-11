@@ -47,6 +47,8 @@ public static class ArmorySetup
         Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
         var root = new GameObject("Armory").transform;
+        var marker = root.gameObject.AddComponent<GeneratedByArmory>();
+        marker.generatedAt = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         int groundLayer = LayerMask.NameToLayer("Ground");
 
         BuildRoom(root, groundLayer);
