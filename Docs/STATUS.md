@@ -1,6 +1,6 @@
 # 项目状态（STATUS）
 
-> 最后更新：2026-11-12
+> 最后更新：2026-11-14
 > 用途：**新对话 / 隔天回来时先读这份**，再按需查 `VISION.md` 和 `MVP-CHECKLIST.md`。
 > 写法：只写"现在是什么状态"，历史交给 `git log`。
 
@@ -9,6 +9,8 @@
 ## 一句话
 
 Unity 6 射击/武器沙盒项目，当前处于 **MVP 第 1–2 周**：军火库白盒已完成，正在做**开火手感闭环**。
+
+**仓库**：<https://github.com/unity-team-ywj/unity-demo>（组织 `unity-team-ywj`，主分支 `main`，本地路径 `D:\un\demo\1`）
 
 ---
 

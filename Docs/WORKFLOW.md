@@ -96,6 +96,7 @@ Docs/
 
 ```powershell
 cd D:\un\demo\1
+git remote -v              # 确认远端：origin = github.com/unity-team-ywj/unity-demo
 
 git status                 # 看当前状态（每次提交前必做）
 git diff                   # 看具体改了哪几行
@@ -105,6 +106,8 @@ git commit -m "类型: 说明"   # 提交
 git push                   # 推送
 git log --oneline -5       # 看最近 5 条历史
 ```
+
+> 仓库地址：<https://github.com/unity-team-ywj/unity-demo>（组织 `unity-team-ywj`）
 
 ---
 
